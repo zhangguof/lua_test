@@ -67,6 +67,8 @@ local function decode_number(text, start)
 			break
 		end
 	end
+	if s==nil then error("decode number error:"..text.."@"..start) end
+
 	return s,t,value
 end
 
@@ -223,6 +225,8 @@ local function decode_string(text, start)
 	if s ~= nil then
 		value = text:sub(s+1,t-1)
 		value = translate_string(value)
+	else
+		error("decode string error:"..text.."@"..start)
 	end
 	return s,t,value
 end
@@ -247,7 +251,7 @@ end
 
 function skip_char(text,start,char)
 	assert(text:sub(start,start)==char,
-		"skip_char error in post:"..start.."(expect "..char..",got "..text:sub(start,start)..").")
+		"skip_char error in text:<"..text..">post:"..start.."(expect "..char..",got "..text:sub(start,start)..").")
 end
 
 
@@ -255,16 +259,17 @@ end
 local function decode_value(text, start)
 	if start == nil then start=1 end
 	char = text:sub(start,start)
+	local s,t,v
 	if char == "{" then
-		return decode_object(text,start)
+		return M.decode_object(text,start)
 
 	elseif char == "[" then
-		return decode_arrary(text,start)
+		return M.decode_arrary(text,start)
+
 	elseif char =='"' then
 		return decode_string(text,start)
 	else
-		local t = nil
-		local s,t = string.find(char,"^%d")
+		s,t = string.find(char,"^%d")
 		if s ~= nil then
 			return decode_number(text,start)
 		end
@@ -279,22 +284,57 @@ end
 
 
 
-local function decode_object(text,start)
+function M.decode_object(text,start)
 	if start == nil then start=1 end
+	local value = {}
+	local idx = start
+
+	skip_char(text,idx,"{")
+	idx = idx+1
+	if text:sub(idx,idx)=="}" then return start,idx,value end
+	local s, t, v = decode_string(text,idx)
+	idx = t + 1
+	skip_char(text,idx,":")
+	idx = idx+1
+	local key = v
+
+	
+	s, t, v = decode_value(text,idx)
+	idx = t+1
+	local val = v
+	value[key] = val
+	if text:sub(idx,idx) == "}" then return start,idx,value end
+
+	while true do
+		if text:sub(idx,idx) ~= "," then break end
+		idx = idx+1
+
+		local s,t,v = decode_string(text,idx)
+		idx = t + 1
+		skip_char(text,idx,":")
+		idx = idx + 1
+		local  key = v
+
+		s, t, v = decode_value(text,idx)
+		idx = t+1
+		local val = v
+		value[key] = val
+	end
+	skip_char(text,idx,"}")
+
+	return start,idx,value
 
 end
 
 
-function decode_arrary(text,start)
+function M.decode_arrary(text,start)
 	if start == nil then start=1 end
 	local value = {}
 	local idx = start
 
 	skip_char(text,idx,"[")
 	idx = idx + 1
-	if text:sub(idx,idx) == "]" then
-		return start,idx,value
-	end
+	if text:sub(idx,idx) == "]" then return start,idx,value end
 
 	local s,t,v = decode_value(text,idx)
 	table.insert(value,v)
@@ -309,10 +349,12 @@ function decode_arrary(text,start)
 
 		local s,t,v = decode_value(text,idx)
 		table.insert(value,v)
-		idx = t +1
+		idx = t + 1
 	end
 
 	skip_char(text,idx,"]")
+
+	--print(start,idx,#text)
 
 	return start,idx,value
 end
@@ -321,8 +363,11 @@ end
 
 
 function M.loads(json_str)
-	local json_table={}
-	return json_table 
+	local s,t,v = decode_value(json_str)
+	if t ~= #json_str then
+		error("loads json error:expect len:"..#json_str.." got "..t)
+	end
+	return v 
 end
 
 function M.dumps(json_table)
@@ -333,6 +378,7 @@ end
 
 
 --------------------------for test------------------------------------------
+require("utils")
 local function _test_decode_number(input_text,true_value)
 	local s, t, value = decode_number(input_text)
 	assert(value==true_value,"test_decode_error:"..input_text.."->"..true_value)
@@ -376,18 +422,20 @@ local function test_decode_string( )
 
 end
 
-test_decode_string()
+-- test_decode_string()
 
-a=decode_value('[]')
-print(a)
-_,_,a=decode_value('[123,["123","efg"],"abc"]')
-function pa(x)
-	for i=1,#x do
-		if type(x)
-		print(x[i])
-	end
-end
-pa(a)
+-- -- _,_,a=decode_value('[]')
+-- -- print_ext(a)
+-- -- _,_,a=M.decode_arrary('[123,["123","efg"]],"abc"]',1)
+-- -- print_ext(a)
+
+-- a=M.loads('{}')
+-- print_ext(a)
+
+-- print("==================")
+-- a=M.loads('{"123":"2\\t13\\"","abc":[1,3,4],"e":{"a":1,"b":"\\u4f60"}}')
+
+-- print_ext(a)
 
 
 return M
