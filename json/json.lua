@@ -36,10 +36,6 @@ e -> e|e+|e-|E|E+|E-
 
 local M={}
 
-local const={["{"]={1,nil},["}"]={1,nil},
-				["true"]={4,true},["false"]={4,false},
-				['null']={4,nil},
-			}
 
 --[[
 decode_xxx
@@ -223,7 +219,7 @@ local function decode_string(text, start)
 	if start == nil then start=1 end
 	local s, t, value
 	reg = '".-[^\\]"'
-	s, t=string.find(text,reg)
+	s, t=string.find(text,reg,start)
 	if s ~= nil then
 		value = text:sub(s+1,t-1)
 		value = translate_string(value)
@@ -231,18 +227,94 @@ local function decode_string(text, start)
 	return s,t,value
 end
 
-
+local const_map={{'^true',true},
+				 {'^false',false},
+				 {'^null',nil}
+				}
 
 local function decode_const(text, start)
 	if start == nil then start=1 end
+	local s, t
+	for i=1,#const_map do
+		local r,v = const_map[i][1], const_map[i][2]
+		s, t = string.find(text,r,start)
+		if s ~= nil then
+			return s,t,v
+		end
+	end
+	return nil
 end
+
+function skip_char(text,start,char)
+	assert(text:sub(start,start)==char,
+		"skip_char error in post:"..start.."(expect "..char..",got "..text:sub(start,start)..").")
+end
+
+
+
+local function decode_value(text, start)
+	if start == nil then start=1 end
+	char = text:sub(start,start)
+	if char == "{" then
+		return decode_object(text,start)
+
+	elseif char == "[" then
+		return decode_arrary(text,start)
+	elseif char =='"' then
+		return decode_string(text,start)
+	else
+		local t = nil
+		local s,t = string.find(char,"^%d")
+		if s ~= nil then
+			return decode_number(text,start)
+		end
+
+		s,t,v = decode_const(text,start)
+		if s ~= nil then
+			return s,t,v
+		end
+		error("decode value error:"..text.."@"..start)
+	end
+end
+
+
 
 local function decode_object(text,start)
 	if start == nil then start=1 end
+
 end
 
-local function decode_arrary(text,start)
+
+function decode_arrary(text,start)
 	if start == nil then start=1 end
+	local value = {}
+	local idx = start
+
+	skip_char(text,idx,"[")
+	idx = idx + 1
+	if text:sub(idx,idx) == "]" then
+		return start,idx,value
+	end
+
+	local s,t,v = decode_value(text,idx)
+	table.insert(value,v)
+	idx = t+1
+	-- if text:sub(idx,idx) == "]" then
+	-- 	return start,idx,value
+	-- end
+
+	while true do
+		if text:sub(idx,idx) ~= "," then break end
+		idx = idx+1
+
+		local s,t,v = decode_value(text,idx)
+		table.insert(value,v)
+		idx = t +1
+	end
+
+	skip_char(text,idx,"]")
+
+	return start,idx,value
 end
 
 
@@ -305,6 +377,17 @@ local function test_decode_string( )
 end
 
 test_decode_string()
+
+a=decode_value('[]')
+print(a)
+_,_,a=decode_value('[123,["123","efg"],"abc"]')
+function pa(x)
+	for i=1,#x do
+		if type(x)
+		print(x[i])
+	end
+end
+pa(a)
 
 
 return M

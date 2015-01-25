@@ -45,8 +45,6 @@ end
 -- print_table(package.loaded)
 -- print_table(package.searchers)
 -- print(package.path)
-mod_a = require("mod.modA")
-mod_b = require("mod.modB")
 
 -- print(mod_a.add(1,20))
 -- print(mod_b.add(20,20))
@@ -59,7 +57,18 @@ mod_b = require("mod.modB")
 text="ddxxdsfda"
 print(text:sub(2,3))
 
-a={'a','b','c'}
-for i=1,#a do
-	print(a[i])
+-- a={'a','b','c'}
+-- for i=1,#a do
+-- 	print(a[i])
+-- end
+print(string.char(0x41))
+print(0x6*2^5)
+--print(math.int(123.1))
+tt={['a']=1,['b']=2,['c']=nil}
+for k,v in pairs(tt) do
+	print(k,v)
 end
+print(tt['d'])
+print(type("dd"))
+
+
